@@ -12,17 +12,42 @@ class UsageError(Exception):
     """Raised for malformed command-line input."""
 
 
+HELP = """onesh - ask a quick question, get a one-shot answer at the terminal.
+
+Usage:
+  onesh [options] "your question"
+
+Options:
+  -c, --continue [N]   Continue a conversation. With no number, continues the
+                       most recent one; with N, continues conversation #N from
+                       the -l list.
+  -l, --list           List recent conversations and exit.
+  --model MODEL        Override the configured model for this call.
+  -h, --help           Show this help and exit.
+
+Examples:
+  onesh "how do I list files by size"
+  onesh -c "now sort them ascending"
+  onesh -c 2 "follow up to conversation 2"
+  onesh -l
+"""
+
+
 def parse_args(argv):
     continue_ = False
     index = None
     list_ = False
     model = None
+    help_ = False
     rest = []
 
     i = 0
     while i < len(argv):
         token = argv[i]
-        if token in ("-l", "--list"):
+        if token in ("-h", "--help"):
+            help_ = True
+            i += 1
+        elif token in ("-l", "--list"):
             list_ = True
             i += 1
         elif token in ("-c", "--continue"):
@@ -50,6 +75,7 @@ def parse_args(argv):
         "index": index,
         "list": list_,
         "model": model,
+        "help": help_,
     }
 
 
@@ -67,6 +93,10 @@ def main(argv=None, *, config_dir=None, env=None):
     except UsageError as exc:
         render_error(str(exc))
         return 2
+
+    if args["help"]:
+        print(HELP)
+        return 0
 
     if not args["list"] and not args["prompt"]:
         render_error('no prompt given. usage: onesh "your question"')

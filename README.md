@@ -14,6 +14,7 @@ Ask a quick question, get a one-shot answer at the terminal — instead of openi
     uv run onesh -c 2 "follow up"             # continue conversation #2 from the -l list
     uv run onesh -l                           # list recent conversations
     uv run onesh --model anthropic/claude-3.5-sonnet "q"
+    uv run onesh --help                       # show all flags
 
 Config lives at `~/.config/onesh/config.json` (created on first run); history at
 `~/.config/onesh/history.json`.

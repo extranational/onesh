@@ -64,3 +64,18 @@ def test_model_override_equals():
 def test_model_requires_value():
     with pytest.raises(UsageError):
         parse_args(["--model"])
+
+
+def test_help_short_flag():
+    a = parse_args(["-h"])
+    assert a["help"] is True
+
+
+def test_help_long_flag():
+    a = parse_args(["--help"])
+    assert a["help"] is True
+
+
+def test_help_defaults_false():
+    a = parse_args(["q"])
+    assert a["help"] is False
