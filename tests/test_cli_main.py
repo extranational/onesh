@@ -94,3 +94,14 @@ def test_main_list(tmp_path, monkeypatch):
     rc = cli.main(["-l"], config_dir=tmp_path, env={"OPENROUTER_API_KEY": "sk"})
     assert rc == 0
     assert listed["items"] == [(1, "my question")]
+
+
+def test_main_help_prints_usage(tmp_path, capsys):
+    rc = cli.main(["--help"], config_dir=tmp_path, env={})
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "onesh" in out
+    assert "-c" in out
+    assert "-l" in out
+    assert "--model" in out
+    assert "-h" in out
