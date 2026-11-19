@@ -10,6 +10,7 @@ def test_plain_prompt():
     assert a["index"] is None
     assert a["list"] is False
     assert a["model"] is None
+    assert a["image_clipboard"] is False
 
 
 def test_multiword_prompt_joined():
@@ -59,6 +60,12 @@ def test_model_override_equals():
     a = parse_args(["--model=x/y", "q"])
     assert a["model"] == "x/y"
     assert a["prompt"] == "q"
+
+
+def test_image_clipboard_flag():
+    a = parse_args(["--image-clipboard", "describe screenshot"])
+    assert a["image_clipboard"] is True
+    assert a["prompt"] == "describe screenshot"
 
 
 def test_model_requires_value():

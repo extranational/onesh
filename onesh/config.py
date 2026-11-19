@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 DEFAULT_CONFIG = {
     "base_url": "https://openrouter.ai/api/v1",
     "api_key_env": "OPENROUTER_API_KEY",
-    "model": "google/gemini-3.5-flash",
+    "model": "qwen/qwen3.8-max-0902",
+    "image_model": "deepseek/deepseek-v4-flash-vision-exp",
     "system_prompt": (
         "You are a concise terminal assistant. Answer directly and briefly. "
         "When asked for a command, give the command first, then at most one "
@@ -25,6 +26,7 @@ class Config:
     base_url: str
     api_key_env: str
     model: str
+    image_model: str
     system_prompt: str
     temperature: float
     list_limit: int

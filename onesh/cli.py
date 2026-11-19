@@ -1,8 +1,8 @@
-import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
-from . import llm
+from . import images, llm
 from .config import default_config_dir, load_config, resolve_api_key
 from .history import History
 from .render import render_answer, render_error, render_list
@@ -22,11 +22,13 @@ Options:
                        most recent one; with N, continues conversation #N from
                        the -l list.
   -l, --list           List recent conversations and exit.
+  --image-clipboard    Attach the current clipboard image to this prompt.
   --model MODEL        Override the configured model for this call.
   -h, --help           Show this help and exit.
 
 Examples:
   onesh "how do I list files by size"
+  onesh --image-clipboard "what is in this screenshot"
   onesh -c "now sort them ascending"
   onesh -c 2 "follow up to conversation 2"
   onesh -l
@@ -38,6 +40,7 @@ def parse_args(argv):
     index = None
     list_ = False
     model = None
+    image_clipboard = False
     help_ = False
     rest = []
 
@@ -49,6 +52,9 @@ def parse_args(argv):
             i += 1
         elif token in ("-l", "--list"):
             list_ = True
+            i += 1
+        elif token == "--image-clipboard":
+            image_clipboard = True
             i += 1
         elif token in ("-c", "--continue"):
             continue_ = True
@@ -75,6 +81,7 @@ def parse_args(argv):
         "index": index,
         "list": list_,
         "model": model,
+        "image_clipboard": image_clipboard,
         "help": help_,
     }
 
@@ -82,6 +89,26 @@ def parse_args(argv):
 def _history_path(config_dir):
     base = Path(config_dir) if config_dir else default_config_dir()
     return base / "history.json"
+
+
+def _prune_unreferenced_images(history, cache_dir):
+    images.prune_unreferenced_images(
+        cache_dir,
+        images.referenced_image_paths(history.state),
+    )
+
+
+def _messages_have_image_refs(messages):
+    return any(
+        any(images.image_refs_from_content(message.get("content")))
+        for message in messages
+    )
+
+
+def _request_config(config, args, messages):
+    if args["model"] is None and _messages_have_image_refs(messages):
+        return replace(config, model=config.image_model)
+    return config
 
 
 def main(argv=None, *, config_dir=None, env=None):
@@ -109,6 +136,7 @@ def main(argv=None, *, config_dir=None, env=None):
         return 1
 
     history_path = _history_path(config_dir)
+    image_cache = images.image_cache_dir(config_dir)
 
     if args["list"]:
         try:
@@ -116,6 +144,7 @@ def main(argv=None, *, config_dir=None, env=None):
         except (ValueError, OSError) as exc:
             render_error(f"could not read history ({history_path}): {exc}")
             return 1
+        _prune_unreferenced_images(history, image_cache)
         render_list(history.list_recent(config.list_limit))
         return 0
 
@@ -134,7 +163,12 @@ def main(argv=None, *, config_dir=None, env=None):
         return 1
 
     if not args["continue_"]:
-        conversation = history.new_conversation(config.model)
+        model = (
+            config.image_model
+            if args["image_clipboard"] and args["model"] is None
+            else config.model
+        )
+        conversation = history.new_conversation(model)
     elif args["index"] is not None:
         try:
             conversation = history.select(args["index"])
@@ -147,16 +181,28 @@ def main(argv=None, *, config_dir=None, env=None):
             render_error("no conversations to continue.")
             return 1
 
-    messages = conversation["messages"] + [{"role": "user", "content": args["prompt"]}]
-    client = llm.build_client(config, api_key)
+    image_refs = []
+    if args["image_clipboard"]:
+        try:
+            image_refs.append(images.capture_clipboard_image(image_cache))
+        except images.ImageError as exc:
+            render_error(str(exc))
+            return 1
+
+    user_content = images.build_user_content(args["prompt"], image_refs)
+    messages = conversation["messages"] + [{"role": "user", "content": user_content}]
+    request_config = _request_config(config, args, messages)
+    client = llm.build_client(request_config, api_key)
     try:
-        text = llm.complete(client, config, messages)
+        text = llm.complete(client, request_config, messages)
     except llm.LLMError as exc:
+        _prune_unreferenced_images(history, image_cache)
         render_error(str(exc))
         return 1
 
-    history.append_turn(conversation, args["prompt"], text)
+    history.append_turn(conversation, user_content, text)
     history.save()
+    _prune_unreferenced_images(history, image_cache)
     render_answer(text)
     return 0
 

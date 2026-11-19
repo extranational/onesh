@@ -83,6 +83,23 @@ def test_list_recent_handles_empty_messages(tmp_path):
     assert h.list_recent(10) == [(1, "(no messages)")]
 
 
+def test_list_recent_uses_text_part_for_image_messages(tmp_path):
+    h = History(tmp_path / "h.json", clock=counter_clock(), uuid_factory=lambda: "x")
+    c = h.new_conversation("m")
+    h.append_turn(
+        c,
+        [
+            {"type": "text", "text": "describe this"},
+            {
+                "type": "image_ref",
+                "image_ref": {"path": "clip.png", "mime_type": "image/png"},
+            },
+        ],
+        "a",
+    )
+    assert h.list_recent(10) == [(1, "describe this")]
+
+
 def test_save_and_reload(tmp_path):
     p = tmp_path / "h.json"
     h = History(p, clock=counter_clock(), uuid_factory=lambda: "x")

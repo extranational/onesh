@@ -15,8 +15,19 @@ def _default_uuid():
 def _title(conversation):
     for message in conversation["messages"]:
         if message["role"] == "user":
-            return message["content"]
+            return _text_content(message["content"])
     return "(no messages)"
+
+
+def _text_content(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                return part.get("text") or "(image)"
+        return "(image)"
+    return str(content)
 
 
 class History:

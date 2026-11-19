@@ -1,5 +1,7 @@
 from openai import OpenAI
 
+from . import images
+
 
 class LLMError(Exception):
     """Raised when the LLM API call fails (network, auth, or API error)."""
@@ -10,7 +12,13 @@ def build_client(config, api_key):
 
 
 def complete(client, config, messages):
-    full = [{"role": "system", "content": config.system_prompt}, *messages]
+    try:
+        full = images.messages_for_api(
+            [{"role": "system", "content": config.system_prompt}, *messages]
+        )
+    except images.ImageError as exc:
+        raise LLMError(str(exc)) from exc
+
     kwargs = {
         "model": config.model,
         "temperature": config.temperature,

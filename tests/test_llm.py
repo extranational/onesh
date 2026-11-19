@@ -9,6 +9,7 @@ def _cfg(**overrides):
         base_url="u",
         api_key_env="K",
         model="m",
+        image_model="im",
         system_prompt="SYS",
         temperature=0.2,
         list_limit=20,
@@ -57,6 +58,39 @@ def test_complete_includes_ranking_headers_when_set():
     assert client.calls[0]["extra_headers"] == {
         "HTTP-Referer": "https://x",
         "X-Title": "onesh",
+    }
+
+
+def test_complete_expands_image_refs_to_data_urls(tmp_path):
+    image = tmp_path / "clip.png"
+    image.write_bytes(b"abc")
+    client = FakeClient("ok")
+
+    complete(
+        client,
+        _cfg(),
+        [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "describe"},
+                    {
+                        "type": "image_ref",
+                        "image_ref": {
+                            "path": str(image),
+                            "mime_type": "image/png",
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+
+    content = client.calls[0]["messages"][1]["content"]
+    assert content[0] == {"type": "text", "text": "describe"}
+    assert content[1] == {
+        "type": "image_url",
+        "image_url": {"url": "data:image/png;base64,YWJj"},
     }
 
 
